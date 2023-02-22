@@ -4,4 +4,4 @@ WORKDIR /app
 
 COPY . .
 
-CMD ["jsctl", "jac", "run", "hello.jac"]
+CMD ["jsctl"]
