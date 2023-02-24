@@ -1,0 +1,8 @@
+version: "3.7"
+
+services:
+  jac:
+    build: .
+    container_name: faq
+    volumes:
+      - ./:/app
