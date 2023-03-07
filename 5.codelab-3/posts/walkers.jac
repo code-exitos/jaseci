@@ -151,26 +151,6 @@ walker summarize_posts {
             report n;
         }
     }
-    // last version
-    // posts {
-    //     post_list = --> node::post;
-        
-    //     for post in post_list {
-    //         take post;
-    //     }
-    // }
-
-    // post {
-    //     if(!here.summary){
-    //         here.summary = t5_sum.classify_text(
-    //         text = here.description,
-    //         min_length = 20,
-    //         max_length = 60
-    //         );
-    //     }
-    // }
-    
-
    
 }
 
@@ -224,45 +204,72 @@ walker sanitize_description {
     }
 }
 
+
 walker add_tags_to_posts {
-    can sbert_sim.get_text_sim;
-    app_root = None;
-    post_nodes = None;
-    tag_nodes = None;
-    root{
-        node_list = --> node::app_root;
-        app_root = node_list[0];
-        take app_root;
+    has tags_node;
+    root: take-->[0];
+
+    app_root{
+        tags_node = spawn here walker::get_tags_node;
+        take --> node::posts;
     } 
 
-    app_root {
-        post_nodes = spawn here walker::get_posts;
-        tag_nodes = spawn here walker::get_tags;
+    posts {
+        // move to first post
+        take -->;
+    }
 
-        for post_node in post_nodes {
-            summary = post_node.summary;
-            
-            for tag_node in tag_nodes {
-                statements = spawn tag_node walker::get_statements;
-                for stmt in statements {
-                    sim = sbert_sim.get_text_sim(summary,stmt.text,1).dict::values[0][0].dict::values[1];
-                    // if sim_score is greater than 0.4, then connect that post node to the tag
-                    if(sim > 0.4){
-                        post_node ++> tag_node;
-                    }
+    post {
+        // get a possible tag to connect the post to
+        tag = spawn tags_node walker::get_possible_tag(post_summary = here.summary);
+        if(tag){
+            // create a link from post to tag
+            here <++> tag;
+        }
+        // move to next post
+        take -->;
+    }
+}
 
-                }
+// traverse tags and get a possible tag based on the simlarity of post summary
+walker get_possible_tag {
+    can sbert_sim.get_text_sim;
+    has anchor tag;
+    has post_summary;
+
+    tags {
+        take-->;
+    }
+
+    tag {
+        statements = spawn here walker::get_statements;
+        for stmt in statements {
+            sim = sbert_sim.get_text_sim(post_summary,stmt.text,1).dict::values[0][0].dict::values[1];
+            // if sim_score is greater than 0.4, then connect that post node to the tag
+            if(sim > 0.4){
+                tag = here; 
+                disengage;
             }
         }
-
+        take-->;
     }
-  
+}
+
+
+walker get_tags_node {
+    has anchor tags_node;
+
+    app_root {
+        take--> node::tags;
+    }
+
+    tags {
+        tags_node = here; disengage;
+    }
 }
 
 walker get_posts {
     has anchor post_nodes;
-
-    app_root: take --> node::posts;
 
     posts {
         post_nodes = -->node::post;

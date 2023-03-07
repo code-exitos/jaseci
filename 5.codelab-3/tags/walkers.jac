@@ -6,10 +6,9 @@ walker import_tags {
     app_root: take --> node::tags; // if at app_root, walk to tags node
 
     tags{
-        cuurent_tag_nodes = --> node::tag;
+        current_tag_nodes = --> node::tag;
         // tag_names = -->.name;
-        for n in cuurent_tag_nodes: destroy n;
-
+        for n in current_tag_nodes: destroy n;
 
         data = file.load_json(file_path); 
 
@@ -30,15 +29,37 @@ walker import_tags {
                     name = n['tag']
                 );
                 here +[tags_tag(id=actual_tag.info['jid'])]+> actual_tag;
+
+            }
+        
+            subtag = spawn actual_tag walker::find_subtag(tag_name =n['subtag']);
+
+            if(!subtag){
+                subtag = spawn node::tag(name = n['subtag']);
+                actual_tag <+[tags_tag(id=subtag.info['jid'])]+> subtag;
             }
 
             statement_node = spawn node::statement(text=n['description']);
-            actual_tag ++> statement_node;
+            subtag ++> statement_node;
 
             // return the created node
             report actual_tag;
         }
         
+    }
+}
+walker find_subtag {
+    has anchor subtag;
+    has tag_name;
+
+    tag {
+        subtags = -->node::tag;
+        for subt in subtags{
+            if(subt.name == tag_name){
+                subtag = subt;
+                disengage;
+            }
+        }
     }
 }
 
@@ -64,7 +85,7 @@ walker create_tag {
 
 # node jid must be specified in nd param;
 walker update_post {
-    has name
+    has name;
 
     post {
         if(name): here.name = name;
@@ -89,5 +110,34 @@ walker list_tags {
     tags {
         report --> node::tag;
         disengage;
+    }
+}
+
+// add subtag to node, jid has to be specified
+walker add_subtag {
+
+}
+
+walker delete_tags {
+    root: take -->[0];
+    app_root: take --> node::tags;
+
+    tags{
+        tag_nodes = -->node::tag;
+        for n in tag_nodes: destroy n;
+    }
+}
+
+walker traverse_tags {
+    root: take-->[0];
+    app_root: take-->node::tags;
+
+    tags {
+        take-->;
+    }
+
+    tag {
+        report here;
+        take-->;
     }
 }
